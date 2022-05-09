@@ -48,6 +48,6 @@ plugins {
         then:
         result.output.contains(":wrapper")
         println "RUNNIN"
-        runProc("${projectDir.absolutePath}/gradlew --version -i").contains('Build time:\n')
+        runProc("${projectDir.absolutePath}/gradlew --version -i").contains('Build time:')
     }
 }
