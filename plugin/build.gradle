@@ -65,6 +65,16 @@ tasks.named('test') {
     useJUnitPlatform()
 }
 
+tasks.withType( Test ){
+    group = 'tests'
+    testLogging{
+        outputs.upToDateWhen{ false }
+        showStandardStreams = true
+        showCauses = true
+        exceptionFormat( 'full' )
+    }
+}
+
 tasks.withType(AbstractPublishToMaven) { publishTask ->
     def printInfo = { AbstractPublishToMaven task, String repoPath ->
         task.publication.with { p ->
