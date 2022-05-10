@@ -32,7 +32,7 @@ pluginBundle {
     tags = ['build-tool', 'java', 'wrapper', 'gradle-util']
 
     plugins {
-        gradleUtilAsciidoc {
+        gradleJava {
             id = 'net.gradleutil.gradle-java'
             displayName = 'Asciidoc gradle util plugin for wrapping gradlew with an auto-downloaded java'
         }

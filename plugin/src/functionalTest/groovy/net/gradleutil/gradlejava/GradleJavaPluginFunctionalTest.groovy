@@ -17,14 +17,14 @@ class GradleJavaPluginFunctionalTest extends Specification {
         new File(projectDir, "settings.gradle")
     }
 
-    private String runProc(String command){
+    private String runProc(String command) {
         println "running command ${command}"
         def sb = new StringBuilder()
-        def proc = [ '/bin/sh', '-c', command ].execute()
-        proc.in.eachLine{ line -> println line; sb.append(line) }
-        proc.err.eachLine{ line -> println line }
+        def proc = ['/bin/sh', '-c', command].execute()
+        proc.in.eachLine { line -> println line; sb.append(line) }
+        proc.err.eachLine { line -> println line }
         proc.out.close()
-        proc.waitForOrKill( 120 * 1000 )
+        proc.waitForOrKill(120 * 1000)
         return sb.toString()
     }
 
@@ -32,10 +32,10 @@ class GradleJavaPluginFunctionalTest extends Specification {
         given:
         settingsFile << ""
         buildFile << """
-plugins {
-    id('net.gradleutil.gradle-java')
-}
-"""
+        plugins {
+            id('net.gradleutil.gradle-java')
+        }
+        """
 
         when:
         def runner = GradleRunner.create()
