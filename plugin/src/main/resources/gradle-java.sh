@@ -64,7 +64,7 @@ if [ -z "$JVM_ARCHIVE" ]; then
 fi
 # Check for environment variable defining different http client, otherwise use curl
 if [ -z "$HTTP_CLIENT" ]; then
-	HTTP_CLIENT="curl -sS -f -L -o"
+	HTTP_CLIENT="curl --create-dirs -sS -f -L -N -o"
 fi
 
 SILENT=true
