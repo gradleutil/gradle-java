@@ -16,11 +16,13 @@ class GradleJavaPlugin implements Plugin<Project> {
 
     static abstract class GradleJavaExtension {
 
-        abstract DirectoryProperty getDownloadDir();
+        abstract DirectoryProperty getTemporaryDir();
 
         abstract DirectoryProperty getScriptDir();
 
         abstract Property<String> getJavaDir();
+
+        abstract Property<String> getType();
 
         abstract Property<String> getMajorVersion();
 
@@ -28,13 +30,13 @@ class GradleJavaPlugin implements Plugin<Project> {
 
         @Inject
         GradleJavaExtension(Project project) {
-            downloadDir.convention(project.layout.dir(project.provider { project.file('/tmp') }))
+			type.convention( 'jdk' )
+            temporaryDir.convention( project.layout.dir( project.provider { project.file( '/tmp') }))
             scriptDir.convention(project.layout.dir(project.provider { project.rootProject.file('gradle') }))
             majorVersion.convention('11')
             release.convention('latest')
-            def gh = project.gradle.gradleUserHomeDir.absolutePath
             project.afterEvaluate{
-                javaDir.convention(gh + "/wrapper/java/${majorVersion.get()}/${release.get()}")
+                javaDir.convention( "\${HOME}/wrapper/java/${majorVersion.get()}/${type.get()}/${release.get()}")
             }
         }
     }

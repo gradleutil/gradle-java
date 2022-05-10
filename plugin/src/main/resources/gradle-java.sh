@@ -25,7 +25,12 @@ if [ -z "$JVM_IMPL" ]; then
 	JVM_IMPL=${JVM_IMPL_DEFAULT} # hotspot, openj9
 fi
 if [ -z "$JVM_OS" ]; then
-	JVM_OS=linux # windows, linux, mac
+	isMusl=$(ldd /bin/ls | grep 'musl' | head -1 | cut -d ' ' -f1)
+	if [ -z "$isMusl" ]; then
+		JVM_OS="linux" # linux, windows, mac, solaris, aix, alpine-linux
+	else
+		JVM_OS="alpine-linux" # docker
+	fi
 fi
 if [ -z "$JVM_ARCH" ]; then
 	JVM_ARCH=x64 # x64, x32, ppc64, s390x, ppc64le, aarch64
@@ -62,23 +67,30 @@ fi
 if [ -z "$JVM_ARCHIVE" ]; then
 	JVM_ARCHIVE="${GRADLE_USER_HOME}/wrapper/java/${JVM_RELEASE}.tar.gz"
 fi
+
 # Check for environment variable defining different http client, otherwise use curl
 if [ -z "$HTTP_CLIENT" ]; then
-	HTTP_CLIENT="curl --create-dirs -sS -f -L -N -o"
+	if command -v curl >/dev/null 2>&1; then
+		HTTP_CLIENT="curl --create-dirs -sS -f -L -N -o"
+	elif command -v wget >/dev/null 2>&1; then
+		HTTP_CLIENT="wget -O"
+	else
+		die "ERROR: Please install wget or curl"
+	fi
 fi
 
 SILENT=true
 
 parse_args() {
-  while [ $# -gt 0 ]; do
-    case "$1" in
-        -d) SILENT=false
-          ;;
-        -i) SILENT=false
-          ;;
-    esac
-    shift
-  done
+	while [ $# -gt 0 ]; do
+		case "$1" in
+			-d) SILENT=false
+			;;
+			-i) SILENT=false
+			;;
+		esac
+		shift
+	done
 }
 parse_args "$@"
 
@@ -87,13 +99,13 @@ string_replace() {
 }
 
 log_line() {
-  if [ "$SILENT" = "false" ]; then
-    echo "$1"
-  fi
+	if [ "$SILENT" = "false" ]; then
+		echo "$1"
+	fi
 }
 
 enc_release(){
-  echo "$1" | sed -e 's/\*/%2A/g' -e 's/+/%2B/g' -e 's/,/%2C/g'
+	echo "$1" | sed -e 's/\*/%2A/g' -e 's/+/%2B/g' -e 's/,/%2C/g'
 }
 
 file_age() {
@@ -106,6 +118,7 @@ file_age() {
 url_file() {
 	sourceURL=$1
 	destFile=$2
+	mkdir -p "$(dirname "$destFile")"
 	if ${HTTP_CLIENT} "${destFile}" "${sourceURL}"; then
 	echo "Downloaded ${sourceURL} to ${destFile}"
 	else
@@ -187,9 +200,10 @@ jvm_install() {
 		fi
 		url_file "${jvmInfoURL}" "${JVM_INFO_FILE}"
 	fi
-	releaseName=$(grep -Po '"release_name":.*?[^\\]",' "${JVM_INFO_FILE}" | awk -F'"' '{print $4}')
-	binaryURL=$(grep -Po '"link":.*?[^\\]",' "${JVM_INFO_FILE}" | awk -F'"' '{print $4}' | head -1)
-	shaURL=$(grep -Po '"checksum_link":.*?[^\\]",' "${JVM_INFO_FILE}" | awk -F'"' '{print $4}')
+
+	releaseName=$(grep -E '"release_name":.*?[^\\]",' "${JVM_INFO_FILE}" | awk -F'"' '{print $4}')
+	binaryURL=$(grep -E '"link":.*?[^\\]",' "${JVM_INFO_FILE}" | awk -F'"' '{print $4}' | head -1)
+	shaURL=$(grep -E '"checksum_link":.*?[^\\]",' "${JVM_INFO_FILE}" | awk -F'"' '{print $4}')
 	needsJvmDownload=true
 	if [ "$JVM_RELEASE" = "latest" ]; then
 		JVM_DIR=$(string_replace "${JVM_DIR}" "latest" "${releaseName}")

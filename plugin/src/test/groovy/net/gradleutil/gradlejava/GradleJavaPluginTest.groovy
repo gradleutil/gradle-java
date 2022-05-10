@@ -18,7 +18,7 @@ class GradleJavaPluginTest extends Specification {
         then:
         project.rootProject.tasks.findByName("wrapper") != null
         def ext = project.extensions.getByType(GradleJavaPlugin.GradleJavaExtension)
-        ext.downloadDir.get().asFile.name == 'tmp'
+        ext.temporaryDir.get().asFile.name == 'tmp'
     }
 
 }
