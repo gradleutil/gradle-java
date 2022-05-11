@@ -61,8 +61,6 @@ class GradleJavaPlugin implements Plugin<Project> {
                 }
             }
 
-            outputs.upToDateWhen {false}
-
             doLast {
                 def javaRelease = System.getenv('JVM_RELEASE') ?: extension.release.get()
                 def javaMajorVersion = System.getenv('JVM_MAJOR_VERSION') ?: extension.majorVersion.get()
