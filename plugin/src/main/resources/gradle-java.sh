@@ -9,6 +9,20 @@ JVM_MAJOR_VERSION_DEFAULT=11
 JVM_RELEASE_DEFAULT=latest
 JVM_IMPL_DEFAULT=hotspot
 JVM_TYPE_DEFAULT=jdk
+case "$(uname -s)" in
+   Darwin)
+	JVM_OS_DEFAULT=mac
+	;;
+   Linux)
+	JVM_OS_DEFAULT=linux
+	;;
+   CYGWIN*|MINGW32*|MSYS*|MINGW*)
+	JVM_OS_DEFAULT=windows
+	;;
+	*)
+	JVM_OS_DEFAULT=linux
+	;;
+esac
 #set -x
 set -e
 # Check for environment JVM version and release variables, otherwise specify the default.
@@ -25,12 +39,13 @@ if [ -z "$JVM_IMPL" ]; then
 	JVM_IMPL=${JVM_IMPL_DEFAULT} # hotspot, openj9
 fi
 if [ -z "$JVM_OS" ]; then
-	isMusl=$(ldd /bin/ls | grep 'musl' | head -1 | cut -d ' ' -f1)
-	if [ -z "$isMusl" ]; then
-		JVM_OS="linux" # linux, windows, mac, solaris, aix, alpine-linux
-	else
-		JVM_OS="alpine-linux" # docker
-	fi
+	JVM_OS=$JVM_OS_DEFAULT
+	if command -v ldd &> /dev/null; then
+		isMusl=$(ldd /bin/ls | grep 'musl' | head -1 | cut -d ' ' -f1)
+		if [ ! -z "$isMusl" ]; then
+			JVM_OS="alpine-linux" # docker
+		fi
+    fi
 fi
 if [ -z "$JVM_ARCH" ]; then
 	JVM_ARCH=x64 # x64, x32, ppc64, s390x, ppc64le, aarch64
@@ -200,13 +215,17 @@ jvm_install() {
 		fi
 		url_file "${jvmInfoURL}" "${JVM_INFO_FILE}"
 	fi
-
-	releaseName=$(grep -E '"release_name":.*?[^\\]",' "${JVM_INFO_FILE}" | awk -F'"' '{print $4}')
-	binaryURL=$(grep -E '"link":.*?[^\\]",' "${JVM_INFO_FILE}" | awk -F'"' '{print $4}' | head -1)
-	shaURL=$(grep -E '"checksum_link":.*?[^\\]",' "${JVM_INFO_FILE}" | awk -F'"' '{print $4}')
+	# grab the 7 lines of JSON we are interested in from the API response file, from which we get the URLs
+	package=$(grep -A 7 -E '"package":' "${JVM_INFO_FILE}" )
+	releaseName=$(echo "${package}" | grep -E '"release_name":.*?[^\\]",' | awk -F'"' '{print $4}')
+	binaryURL=$(echo "${package}" | grep -E '"link":.*?[^\\]",' | awk -F'"' '{print $4}' | head -1)
+	shaURL=$(echo "${package}" | grep -E '"checksum_link":.*?[^\\]",' | awk -F'"' '{print $4}')
 	needsJvmDownload=true
 	if [ "$JVM_RELEASE" = "latest" ]; then
 		JVM_DIR=$(string_replace "${JVM_DIR}" "latest" "${releaseName}")
+	fi
+	if [ -f "${JVM_DIR}/Contents/Home/bin/java" ]; then
+		JVM_DIR="${JVM_DIR}/Contents/Home"
 	fi
 	if [ -f "${JVM_DIR}/bin/java" ] && [ -x "${JVM_DIR}/bin/java" ]; then
 		needsJvmDownload=false
