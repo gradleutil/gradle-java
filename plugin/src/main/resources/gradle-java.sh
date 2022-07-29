@@ -40,7 +40,7 @@ if [ -z "$JVM_IMPL" ]; then
 fi
 if [ -z "$JVM_OS" ]; then
 	JVM_OS=$JVM_OS_DEFAULT
-	if command -v ldd &> /dev/null; then
+	if type ldd 2>/dev/null; then
 		isMusl=$(ldd /bin/ls | grep 'musl' | head -1 | cut -d ' ' -f1)
 		if [ ! -z "$isMusl" ]; then
 			JVM_OS="alpine-linux" # docker
