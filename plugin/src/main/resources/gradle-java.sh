@@ -10,16 +10,16 @@ JVM_RELEASE_DEFAULT=latest
 JVM_IMPL_DEFAULT=hotspot
 JVM_TYPE_DEFAULT=jdk
 case "$(uname -s)" in
-   Darwin)
+Darwin)
 	JVM_OS_DEFAULT=mac
 	;;
-   Linux)
+Linux)
 	JVM_OS_DEFAULT=linux
 	;;
-   CYGWIN*|MINGW32*|MSYS*|MINGW*)
+CYGWIN* | MINGW32* | MSYS* | MINGW*)
 	JVM_OS_DEFAULT=windows
 	;;
-	*)
+*)
 	JVM_OS_DEFAULT=linux
 	;;
 esac
@@ -40,12 +40,12 @@ if [ -z "$JVM_IMPL" ]; then
 fi
 if [ -z "$JVM_OS" ]; then
 	JVM_OS=$JVM_OS_DEFAULT
-	if type ldd 2>/dev/null; then
+	if command -v ldd >/dev/null 2>&1; then
 		isMusl=$(ldd /bin/ls | grep 'musl' | head -1 | cut -d ' ' -f1)
-		if [ ! -z "$isMusl" ]; then
+		if [ -n "$isMusl" ]; then
 			JVM_OS="alpine-linux" # docker
 		fi
-    fi
+	fi
 fi
 if [ -z "$JVM_ARCH" ]; then
 	JVM_ARCH=x64 # x64, x32, ppc64, s390x, ppc64le, aarch64
@@ -69,7 +69,7 @@ done
 SAVED="$(pwd)"
 cd "$(dirname "$PRG")/" || exit 1
 SCRIPT_DIR="$(pwd -P)"
-PROJECT_ROOT="$( cd "$SCRIPT_DIR" && pwd )"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR" && pwd)"
 cd "$SAVED" || exit 1
 
 # Check for environment variables for where to store the JVM, otherwise specify the default.
@@ -99,9 +99,11 @@ SILENT=true
 parse_args() {
 	while [ $# -gt 0 ]; do
 		case "$1" in
-			-d) SILENT=false
+		-d)
+			SILENT=false
 			;;
-			-i) SILENT=false
+		-i)
+			SILENT=false
 			;;
 		esac
 		shift
@@ -119,7 +121,7 @@ log_line() {
 	fi
 }
 
-enc_release(){
+enc_release() {
 	echo "$1" | sed -e 's/\*/%2A/g' -e 's/+/%2B/g' -e 's/,/%2C/g'
 }
 
@@ -135,7 +137,7 @@ url_file() {
 	destFile=$2
 	mkdir -p "$(dirname "$destFile")"
 	if ${HTTP_CLIENT} "${destFile}" "${sourceURL}"; then
-	echo "Downloaded ${sourceURL} to ${destFile}"
+		echo "Downloaded ${sourceURL} to ${destFile}"
 	else
 		echo "Failed to download ${sourceURL} to ${destFile}"
 		echo "If you have an old version of libssl you may not have the correct"
@@ -164,7 +166,7 @@ shaurl_file() {
 	archiveFile=$3
 	url_file "${shaURL}" "${archiveFile}.sha256.txt"
 	if [ ! -f "${archiveFile}" ]; then
-  	url_file "${archiveURL}" "${archiveFile}"
+		url_file "${archiveURL}" "${archiveFile}"
 	fi
 	sha=$(awk '{print $1}' <"${archiveFile}.sha256.txt")
 	calculated_sha=$(sha_for "${archiveFile}")
@@ -196,6 +198,12 @@ shaurl_unarchive() {
 	fi
 }
 
+jvm_dir() {
+	if [ "$JVM_OS" = "mac" ] && [ -f "${JVM_DIR}/Contents/Home/bin/java" ]; then
+		JVM_DIR="${JVM_DIR}/Contents/Home"
+	fi
+}
+
 jvm_install() {
 	log_line "Requesting Java ${JVM_MAJOR_VERSION} ${JVM_RELEASE} release"
 	needsJvmInfo=true
@@ -206,6 +214,7 @@ jvm_install() {
 			log_line "${JVM_INFO_FILE} is less than 24 hours old, not re-downloading"
 		fi
 	fi
+
 	if [ "$needsJvmInfo" = "true" ]; then
 		JVM_RELEASE=$(enc_release $JVM_RELEASE)
 		if [ "${JVM_RELEASE}" = "latest" ]; then
@@ -216,7 +225,7 @@ jvm_install() {
 		url_file "${jvmInfoURL}" "${JVM_INFO_FILE}"
 	fi
 	# grab the 7 lines of JSON we are interested in from the API response file, from which we get the URLs
-	package=$(grep -A 7 -E '"package":' "${JVM_INFO_FILE}" )
+	package=$(grep -A 7 -E '"package":' "${JVM_INFO_FILE}")
 	releaseName=$(echo "${package}" | grep -E '"release_name":.*?[^\\]",' | awk -F'"' '{print $4}')
 	binaryURL=$(echo "${package}" | grep -E '"link":.*?[^\\]",' | awk -F'"' '{print $4}' | head -1)
 	shaURL=$(echo "${package}" | grep -E '"checksum_link":.*?[^\\]",' | awk -F'"' '{print $4}')
@@ -224,9 +233,7 @@ jvm_install() {
 	if [ "$JVM_RELEASE" = "latest" ]; then
 		JVM_DIR=$(string_replace "${JVM_DIR}" "latest" "${releaseName}")
 	fi
-	if [ -f "${JVM_DIR}/Contents/Home/bin/java" ]; then
-		JVM_DIR="${JVM_DIR}/Contents/Home"
-	fi
+	jvm_dir
 	if [ -f "${JVM_DIR}/bin/java" ] && [ -x "${JVM_DIR}/bin/java" ]; then
 		needsJvmDownload=false
 		log_line "${JVM_DIR} exists, not re-downloading"
@@ -235,20 +242,22 @@ jvm_install() {
 		echo "Downloading ${binaryURL}"
 		shaurl_unarchive "${binaryURL}" "${shaURL}" "${JVM_ARCHIVE}" "${JVM_DIR}"
 	fi
+	jvm_dir
 	export JAVA_HOME=${JVM_DIR}
 	echo "Java ${JVM_TYPE} ${JVM_MAJOR_VERSION} ${releaseName} - JAVA_HOME: ${JVM_DIR}"
 }
 
-if [ -z "$JVM_JAVA_HOME" ]; then
+if [ -n "$JVM_JAVA_HOME" ]; then
+	echo "Using pre-specified JVM_JAVA_HOME: $JVM_JAVA_HOME"
+	JAVA_HOME=$JVM_JAVA_HOME
+else
+	jvm_dir
 	if [ -f "${JVM_DIR}/bin/java" ] && [ -x "${JVM_DIR}/bin/java" ]; then
-	  log_line "Java: $JVM_DIR"
+		log_line "Java: $JVM_DIR"
 		JAVA_HOME=${JVM_DIR}
 	else
 		log_line "${JVM_DIR} does not exist!  Getting Java..."
 		jvm_install
 	fi
-else
-	echo "Using JVM_JAVA_HOME: $JVM_JAVA_HOME"
-	JAVA_HOME=$JVM_JAVA_HOME
 fi
 export JAVA_HOME
