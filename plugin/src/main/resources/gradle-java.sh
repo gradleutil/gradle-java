@@ -9,6 +9,9 @@ JVM_MAJOR_VERSION_DEFAULT=11
 JVM_RELEASE_DEFAULT=latest
 JVM_IMPL_DEFAULT=hotspot
 JVM_TYPE_DEFAULT=jdk
+#set -x
+set -e
+
 case "$(uname -s)" in
 Darwin)
 	JVM_OS_DEFAULT=mac
@@ -23,8 +26,24 @@ CYGWIN* | MINGW32* | MSYS* | MINGW*)
 	JVM_OS_DEFAULT=linux
 	;;
 esac
-#set -x
-set -e
+
+# x64, x32, ppc64, s390x, ppc64le, aarch64
+JVM_ARCH_DEFAULT=x64
+arch="$(uname -m)" # -i is only linux, -m is linux and apple
+if [ "$arch" = "x86_64*" ]; then
+	if [ "$(uname -a)" = "*ARM64*" ]; then
+		JVM_ARCH_DEFAULT=aarch64
+	else
+		JVM_ARCH_DEFAULT=x64
+	fi
+elif [ "$arch" = "i*86" ]; then
+	JVM_ARCH_DEFAULT=x32
+elif [ "$arch" = "arm*" ]; then
+	JVM_ARCH_DEFAULT=a32
+elif test "$arch" = aarch64; then
+	JVM_ARCH_DEFAULT=aarch64
+fi
+
 # Check for environment JVM version and release variables, otherwise specify the default.
 if [ -z "$JVM_MAJOR_VERSION" ]; then
 	JVM_MAJOR_VERSION=${JVM_MAJOR_VERSION_DEFAULT}
@@ -48,7 +67,7 @@ if [ -z "$JVM_OS" ]; then
 	fi
 fi
 if [ -z "$JVM_ARCH" ]; then
-	JVM_ARCH=x64 # x64, x32, ppc64, s390x, ppc64le, aarch64
+	JVM_ARCH=$JVM_ARCH_DEFAULT # x64, x32, ppc64, s390x, ppc64le, aarch64
 fi
 if [ -z "$JVM_HEAP" ]; then
 	JVM_HEAP=normal # normal, large

@@ -36,7 +36,7 @@ class GradleJavaPlugin implements Plugin<Project> {
             majorVersion.convention('11')
             release.convention('latest')
             project.afterEvaluate{
-                javaDir.convention( "\${HOME}/wrapper/java/${majorVersion.get()}/${type.get()}/${release.get()}")
+                javaDir.convention( "\${HOME}/.gradle/wrapper/java/${majorVersion.get()}/${type.get()}/${release.get()}")
             }
         }
     }
